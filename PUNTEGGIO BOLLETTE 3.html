@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisi Bolletta e Calcolo Punteggio Bolletta</title>
+    <link href="https://fonts.googleapis.com/css2?family=HK+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.1/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.7.570/pdf.min.js"></script>
+    <style>
+        body {
+            font-family: 'HK Grotesk', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            background: url('https://i.imgur.com/xDwZqc4.jpg') no-repeat center center fixed;
+            background-size: cover;
+            padding: 20px;
+            box-sizing: border-box;
+            color: #fff;
+            animation: fadeIn 1s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .header, .calculation-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+        .header img, .calculation-header img {
+            max-height: 150px;
+            margin-bottom: 20px;
+            animation: bounceIn 1s ease;
+        }
+        .header h1, .calculation-header h1 {
+            color: #fff;
+            font-size: 2em;
+            text-align: center;
+            background: rgba(6, 119, 129, 0.9);
+            padding: 15px 30px;
+            border-radius: 10px;
+            width: 100%;
+            margin: 0;
+            animation: slideIn 1s ease;
+            box-sizing: border-box;
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+        .form-control, .inputField, select {
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            padding: 12px;
+            width: 100%;
+            max-width: 600px;
+            border: 2px solid #067781;
+            border-radius: 8px;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.9);
+            color: #067781;
+            animation: fadeIn 1s ease;
+        }
+        .form-group {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+        .form-group select {
+            width: 48%;
+        }
+        button, .file-input-label {
+            padding: 15px;
+            font-size: 1.2em;
+            color: #fff;
+            background-color: #067781;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s, box-shadow 0.3s;
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+            animation: fadeIn 1s ease;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        button:hover, .file-input-label:hover {
+            background-color: #045c63;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        button:active, .file-input-label:active {
+            transform: scale(0.95);
+        }
+        #fileInput {
+            display: none;
+        }
+        #fileName {
+            color: #067781;
+            margin-top: -10px;
+            margin-bottom: 20px;
+            animation: fadeIn 1s ease;
+        }
+        #output {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+            background: transparent;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: left;
+            word-wrap: break-word;
+            color: #067781;
+            animation: fadeIn 1s ease;
+        }
+        #pdfViewer {
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            border: none;
+            margin-top: 20px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+            animation: fadeIn 1s ease;
+        }
+        .pageCanvas {
+            display: none;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            border: 2px solid #067781;
+            border-radius: 8px;
+            width: 100%;
+        }
+        .activeCanvas {
+            display: block;
+            animation: fadeIn 1s ease;
+        }
+        .navButtons {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 600px;
+            margin: 10px 0 20px;
+            display: none;
+        }
+        .navButton {
+            font-size: 3em;
+            color: #067781;
+            transition: color 0.3s;
+            cursor: pointer;
+        }
+        .navButton:hover {
+            color: #045c63;
+        }
+        .navButton:disabled {
+            color: #ccc;
+            cursor: not-allowed;
+        }
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #067781;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .result {
+            margin-top: 20px;
+        }
+        .result strong {
+            color: #333;
+        }
+        .result p {
+            margin: 5px 0;
+            color: #555;
+        }
+        .extracted-text {
+            white-space: pre-wrap;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #067781;
+            animation: fadeIn 1s ease;
+            display: none;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            padding: 20px;
+            background-color: transparent;
+            box-shadow: none;
+            border-radius: 10px;
+            text-align: center;
+            color: #333;
+            margin-top: 20px;
+            animation: fadeIn 1s ease;
+        }
+        .hidden {
+            display: none;
+        }
+        #result {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #067781;
+        }
+        .emoji {
+            font-size: 2em;
+            display: inline-block;
+            animation: bounce 1s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-20px);
+            }
+            60% {
+                transform: translateY(-10px);
+            }
+        }
+        #explanation, #detailedExplanation {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #067781;
+            border-radius: 4px;
+            background-color: rgba(233, 255, 233, 0.9);
+            font-size: 1em;
+            color: #067781;
+            animation: fadeIn 1s ease;
+        }
+        #detailedExplanationButton {
+            width: 100%;
+            padding: 15px;
+            background-color: #fff;
+            color: #067781;
+            border: 2px solid #067781;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+            margin-top: 20px;
+        }
+        #detailedExplanationButton:hover {
+            background-color: #067781;
+            color: #fff;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        #detailedExplanationButton:active {
+            transform: scale(0.95);
+        }
+        .footer-text {
+            font-size: 0.5em;
+            margin-top: 20px;
+            color: #067781;
+            text-align: center;
+            line-height: 1.2;
+        }
+        footer {
+            margin-top: 10px;
+            text-align: center;
+            color: #fff;
+            font-size: 0.9em;
+            background-color: rgba(6, 119, 129, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 10px;
+            color: #067781;
+        }
+        .close {
+            color: #067781;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .highlight-error {
+            animation: highlightError 0.5s infinite alternate;
+        }
+        @keyframes highlightError {
+            from { background-color: #f8d7da; }
+            to { background-color: #fff; }
+        }
+        @media (max-width: 600px) {
+            .header h1, .calculation-header h1 {
+                font-size: 1.5em;
+            }
+            button, .file-input-label {
+                width: 100%;
+                padding: 15px;
+                font-size: 1.2em;
+            }
+            .navButton {
+                font-size: 2em;
+                margin: 0 10px;
+            }
+            .form-control, .inputField, select {
+                font-size: 0.9em;
+                padding: 8px;
+            }
+            .container {
+                padding: 15px;
+                box-shadow: none;
+                border-radius: 0;
+            }
+            #result {
+                font-size: 1.2em;
+            }
+            #explanation, #detailedExplanation {
+                font-size: 0.9em;
+            }
+            .pageCanvas {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="https://i.imgur.com/y2DejFA.png" alt="Logo">
+        <h1>Carica la tua Bolletta Luce o Gas</h1>
+    </div>
+    <div class="form-group">
+        <select id="typeSelect" class="form-control">
+            <option value="luce">Luce</option>
+            <option value="gas">Gas</option>
+        </select>
+        <select id="categorySelect" class="form-control">
+            <option value="residenziale">Residenziale</option>
+            <option value="business">Business</option>
+        </select>
+    </div>
+    <label for="fileInput" class="file-input-label">Scegli file</label>
+    <input type="file" id="fileInput" class="form-control" accept=".pdf,image/*" capture="environment" onchange="displayFileName()">
+    <div id="fileName"></div>
+    <button onclick="analyzeFile()">Analizza</button>
+    <div id="output"></div>
+    <div id="pdfViewer">
+        <canvas id="page1" class="pageCanvas"></canvas>
+        <canvas id="page2" class="pageCanvas"></canvas>
+    </div>
+    <div class="navButtons">
+        <div id="prevPage" class="navButton" onclick="showPage(1)">&#8592;</div>
+        <div id="nextPage" class="navButton" onclick="showPage(2)">&#8594;</div>
+    </div>
+
+    <div class="calculation-header hidden" id="calculationHeader">
+        <h1 style="margin-top: 20px;">Calcola il punteggio della tua Bolletta!</h1>
+    </div>
+    <div class="container hidden" id="calculationContainer">
+        <form id="calculationForm">
+            <label for="periodo"><strong style="color: #067781;">Periodo di Fatturazione:</strong></label>
+            <select id="periodo" name="periodo" class="form-control">
+                <option value="1">Mensile</option>
+                <option value="2">Bimestrale</option>
+                <option value="4">Quadrimestrale</option>
+            </select>
+
+            <input type="number" id="energia" name="energia" step="0.01" class="hidden" required>
+            <input type="number" id="importo" name="importo" step="0.01" class="hidden" required>
+            <input type="number" id="consumo" name="consumo" step="0.01" class="hidden" required>
+        </form>
+
+        <button type="button" onclick="calcolaPunteggio()">Calcola Punteggio</button>
+
+        <div id="result"></div>
+        <div id="explanation"></div>
+        <button id="detailedExplanationButton" class="hidden" onclick="toggleDetailedExplanation()">PERCHÈ QUESTO PUNTEGGIO?</button>
+        <div id="detailedExplanation" class="hidden"></div>
+    </div>
+    <div class="footer-text">
+        <p>
+            Per un'analisi adeguata, rivolgersi ai nostri consulenti specializzati.<br>
+            Il punteggio calcolato è esclusivamente a scopo informativo, per maggiori informazioni <span onclick="showModal()" style="color: #067781; text-decoration: underline; cursor: pointer;">clicca qui</span>.<br>
+            Nessun dato inserito dall'utente è in alcun modo salvato o inviato da o ad A.Z. Servizi o terze parti.
+        </p>
+    </div>
+    <footer>
+        &copy; 2024 A.Z. Servizi
+    </footer>
+
+    <div id="infoModal" class="modal" onclick="closeModal(event)">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Calcolo del Punteggio della Bolletta</h2>
+            <p>Per valutare l'efficienza e il costo della bolletta energetica, vengono presi in considerazione diversi parametri chiave. Di seguito, una spiegazione dettagliata dei principali costi utilizzati nel calcolo del punteggio:</p>
+            
+            <h3>Costo Medio della Bolletta</h3>
+            <p><strong>Definizione:</strong> È il valore ottenuto dividendo l'importo totale della fattura per i kWh (kilowattora) o SMC (Standard Metro Cubo) fatturati.</p>
+            <p><strong>Importanza:</strong> Indica la spesa complessiva per l'energia, includendo tutte le componenti della bolletta. È un indicatore del costo medio per ogni unità di energia consumata.</p>
+            
+            <h3>Costo Medio della Spesa per l'Energia</h3>
+            <p><strong>Definizione:</strong> È il valore ottenuto dividendo il costo della spesa per l'energia per i kWh/SMC fatturati.</p>
+            <p><strong>Importanza:</strong> Rappresenta specificamente la spesa relativa all'energia consumata, escludendo voci come oneri di sistema, trasporto e imposte. È utile per capire la spesa effettiva per l'energia utilizzata.</p>
+            
+            <h3>Costi Fissi Mensili Tipici</h3>
+            <p><strong>Definizione:</strong> Costi da pagare indipendentemente dal consumo di energia. Possono includere:</p>
+            <ul>
+                <li><strong>Quota fissa:</strong> Tariffa base per essere allacciati alla rete elettrica o del gas.</li>
+                <li><strong>Oneri di sistema:</strong> Costi relativi ai servizi di sistema, gestione delle reti di distribuzione e altri costi fissi.</li>
+                <li><strong>Imposte:</strong> Tasse e accise sulla fornitura di energia.</li>
+            </ul>
+            <p><strong>Importanza:</strong> Questi costi influiscono sul totale della bolletta anche con consumo minimo o nullo. Sono fondamentali nel calcolo del punteggio quando il consumo di energia è basso.</p>
+            
+            <h3>Consumo Fatturato</h3>
+            <p><strong>Definizione:</strong> La quantità di energia consumata e addebitata sulla bolletta, espressa in kWh per l'energia elettrica o in SMC per il gas.</p>
+            <p><strong>Importanza:</strong> Indicatore diretto dell'uso di energia del cliente. Un consumo elevato può portare a costi totali più alti, ma un consumo efficiente rispetto ai costi può migliorare il punteggio.</p>
+            
+            <h3>Soglie Utilizzate per il Calcolo del Punteggio</h3>
+            <p>Le soglie variano in base al tipo di servizio (luce o gas) e alla categoria dell'utenza (residenziale o business). Rappresentano i valori di riferimento per valutare se i costi della bolletta sono bassi, medi o alti.</p>
+            
+            <h4>Soglie per la Luce</h4>
+            <h5>Utenza Residenziale:</h5>
+            <ul>
+                <li>Soglia Minima Bolletta: 0.25 €/kWh</li>
+                <li>Soglia Massima Bolletta: 0.40 €/kWh</li>
+                <li>Soglia Minima Spesa Energia: 0.15 €/kWh</li>
+                <li>Soglia Massima Spesa Energia: 0.25 €/kWh</li>
+                <li>Costo Fisso Minimo: 20 € al mese</li>
+                <li>Costo Fisso Massimo: 25 € al mese</li>
+            </ul>
+            <h5>Utenza Business:</h5>
+            <ul>
+                <li>Soglia Minima Bolletta: 0.18 €/kWh</li>
+                <li>Soglia Massima Bolletta: 0.30 €/kWh</li>
+                <li>Soglia Minima Spesa Energia: 0.12 €/kWh</li>
+                <li>Soglia Massima Spesa Energia: 0.20 €/kWh</li>
+                <li>Costo Fisso Minimo: 30 € al mese</li>
+                <li>Costo Fisso Massimo: 40 € al mese</li>
+            </ul>
+            
+            <h4>Soglie per il Gas</h4>
+            <h5>Utenza Residenziale:</h5>
+            <ul>
+                <li>Soglia Minima Bolletta: 0.80 €/Smc</li>
+                <li>Soglia Massima Bolletta: 1.50 €/Smc</li>
+                <li>Soglia Minima Spesa Energia: 0.35 €/Smc</li>
+                <li>Soglia Massima Spesa Energia: 0.50 €/Smc</li>
+                <li>Costo Fisso Minimo: 10 € al mese</li>
+                <li>Costo Fisso Massimo: 15 € al mese</li>
+            </ul>
+            <h5>Utenza Business:</h5>
+            <ul>
+                <li>Soglia Minima Bolletta: 0.60 €/Smc</li>
+                <li>Soglia Massima Bolletta: 1.20 €/Smc</li>
+                <li>Soglia Minima Spesa Energia: 0.30 €/Smc</li>
+                <li>Soglia Massima Spesa Energia: 0.45 €/Smc</li>
+                <li>Costo Fisso Minimo: 20 € al mese</li>
+                <li>Costo Fisso Massimo: 30 € al mese</li>
+            </ul>
+            
+            <h3>Dettagli delle Soglie</h3>
+            <p><strong>Soglie Minima e Massima della Bolletta:</strong></p>
+            <p><strong>Soglia Minima:</strong> Costo per unità (kWh o Smc) sotto il quale la bolletta è molto efficiente e si ottiene il punteggio massimo.</p>
+            <p><strong>Soglia Massima:</strong> Costo per unità (kWh o Smc) sopra il quale la bolletta è molto inefficiente e si ottiene il punteggio minimo.</p>
+            <p><strong>Soglie Minima e Massima della Spesa Energia:</strong></p>
+            <p><strong>Soglia Minima:</strong> Costo per unità di energia (kWh o Smc) sotto il quale la spesa per l'energia è molto efficiente.</p>
+            <p><strong>Soglia Massima:</strong> Costo per unità di energia (kWh o Smc) sopra il quale la spesa per l'energia è molto inefficiente.</p>
+            <p><strong>Costi Fissi:</strong></p>
+            <p><strong>Costo Fisso Minimo:</strong> Costo minimo mensile indipendente dal consumo.</p>
+            <p><strong>Costo Fisso Massimo:</strong> Costo massimo mensile indipendente dal consumo.</p>
+        </div>
+    </div>
+
+    <script>
+        let analyzedData = {};
+
+        function showModal() {
+            document.getElementById('infoModal').style.display = 'block';
+        }
+
+        function closeModal(event) {
+            if (event.target.classList.contains('modal') || event.target.classList.contains('close')) {
+                document.getElementById('infoModal').style.display = 'none';
+            }
+        }
+
+        function displayFileName() {
+            const fileInput = document.getElementById('fileInput');
+            const fileNameDisplay = document.getElementById('fileName');
+            const fileName = fileInput.files[0] ? fileInput.files[0].name : '';
+            fileNameDisplay.textContent = fileName;
+        }
+
+        async function analyzeFile() {
+            const fileInput = document.getElementById('fileInput');
+            const fileType = document.getElementById('typeSelect').value;
+            const category = document.getElementById('categorySelect').value;
+            const file = fileInput.files[0];
+            const output = document.getElementById('output');
+            const pdfViewer = document.getElementById('pdfViewer');
+            const navButtons = document.querySelector('.navButtons');
+            const calculationHeader = document.getElementById('calculationHeader');
+            const calculationContainer = document.getElementById('calculationContainer');
+
+            output.innerHTML = '';
+            pdfViewer.style.display = 'none';
+            navButtons.style.display = 'none';
+            
+            if (!file) {
+                alert('Per favore, carica un file.');
+                return;
+            }
+
+            output.innerHTML = '<div class="spinner"></div><p>Analisi in corso, per favore attendi...</p>';
+
+            try {
+                let text = '';
+                if (file.type === 'application/pdf') {
+                    await renderPdf(file);
+                    text = await extractTextFromPdf(file);
+                } else if (file.type.startsWith('image/')) {
+                    text = await extractTextFromImage(file);
+                } else {
+                    throw new Error('Formato di file non supportato.');
+                }
+
+                console.log('Testo estratto:', text);
+                text = correctNumberFormats(text);
+                displayResults(text, fileType, category);
+                navButtons.style.display = 'flex';
+                calculationHeader.classList.remove('hidden');
+                calculationContainer.classList.remove('hidden');
+            } catch (error) {
+                console.error('Errore durante l\'analisi del file:', error);
+                output.innerHTML = '<p>Si è verificato un errore durante l\'analisi del file. Per favore, riprova o inserisci manualmente i dati mancanti.</p>';
+                displayManualInputFields();
+            }
+        }
+
+        async function renderPdf(file) {
+            const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
+            const pdfViewer = document.getElementById('pdfViewer');
+            pdfViewer.style.display = 'flex';
+
+            for (let pageNum = 1; pageNum <= 2 && pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.getElementById(`page${pageNum}`);
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                }).promise;
+
+                if (pageNum === 1) {
+                    canvas.classList.add('activeCanvas');
+                }
+            }
+        }
+
+        function showPage(pageNum) {
+            document.querySelectorAll('.pageCanvas').forEach(canvas => {
+                canvas.classList.remove('activeCanvas');
+            });
+            document.getElementById(`page${pageNum}`).classList.add('activeCanvas');
+        }
+
+        async function extractTextFromPdf(file) {
+            const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
+            const numPages = pdf.numPages;
+            let fullText = '';
+
+            for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += ` ${pageText}`;
+            }
+
+            return fullText;
+        }
+
+        async function extractTextFromImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function () {
+                    const imageDataUrl = reader.result;
+                    const text = await extractTextFromImageDataUrl(imageDataUrl);
+                    resolve(text);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function extractTextFromImageDataUrl(imageDataUrl) {
+            return Tesseract.recognize(imageDataUrl, 'ita', {
+                logger: m => console.log(m),
+                tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+                tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+            }).then(({ data: { text } }) => text);
+        }
+
+        function correctNumberFormats(text) {
+            return text.replace(/(\d+)\.(\d{3})/g, '$1$2').replace(/(\d+)\.(\d{2})/g, '$1,$2');
+        }
+
+        function correctOcrErrors(text) {
+            return text.replace(/([A-Za-z])([0-9]{12})/g, (match, p1, p2) => {
+                if (p1.toUpperCase() === 'I' && p2.length === 12) {
+                    return 'IT' + p2.replace(/O/g, '0');
+                }
+                return match;
+            }).replace(/([0-9]{14})/g, match => {
+                return match.replace(/O/g, '0');
+            });
+        }
+
+        function cleanText(text) {
+            const phrasesToExclude = [
+                "ENERGIA IN CASO DI MANCATO RECAPITO DA RESTITUIRE AL CENTRO DI VERIFICA DI RIFERIMENTO",
+                "CODICE FISCALE",
+                "PARTITA IVA"
+            ];
+            phrasesToExclude.forEach(phrase => {
+                text = text.replace(new RegExp(phrase, 'gi'), '');
+            });
+            return text;
+        }
+
+        function findSpesaEnergia(normalizedText, importoBolletta) {
+            const spesaPattern = /(\d{1,7}[\.,]?\d{0,2})\s*(€|EURO)/gi;
+            let match;
+            while ((match = spesaPattern.exec(normalizedText)) !== null) {
+                const spesa = parseFloat(match[1].replace(',', '.'));
+                const importo = parseFloat(importoBolletta.replace(',', '.'));
+                if (spesa < importo) {
+                    return spesa.toFixed(2).replace('.', ',');
+                }
+            }
+            return '';
+        }
+
+        function displayExtractedText(text) {
+            const output = document.getElementById('output');
+            const textDiv = document.createElement('div');
+            textDiv.className = 'extracted-text';
+            textDiv.innerHTML = `<strong>Testo Estratto:</strong><pre>${text}</pre>`;
+            output.appendChild(textDiv);
+        }
+
+        function displayResults(text, fileType, category) {
+            const output = document.getElementById('output');
+            output.innerHTML = '<h2 style="background:transparent;">Risultati dell\'analisi</h2>';
+            output.innerHTML += '<p style="color: red; font-weight: bold;">Si prega di controllare se i dati estratti sono corretti.</p>';
+
+            let cleanedText = cleanText(text);
+            const correctedText = correctOcrErrors(cleanedText);
+            console.log('Testo corretto:', correctedText);
+
+            const normalizedText = correctedText.toUpperCase().replace(/\s+/g, ' ');
+            console.log('Testo normalizzato:', normalizedText);
+
+            let identificativo = '';
+            let pod = '';
+            let pdr = '';
+            let consumoBolletta = '';
+            let importoBolletta = '';
+            let spesaEnergia = '';
+
+            if (category === 'residenziale') {
+                const cfPattern = /\b[A-Z0-9]{16}\b/gi;
+                const cfMatch = normalizedText.match(cfPattern);
+                if (cfMatch) {
+                    identificativo = cfMatch[0];
+                    output.innerHTML += `<div class="result"><strong>Codice Fiscale:</strong><input type="text" id="codiceFiscaleInput" class="inputField" value="${identificativo.toUpperCase()}" oninput="saveManualData()"></div>`;
+                } else {
+                    output.innerHTML += `<div class="result"><strong>Non è stato trovato un Codice Fiscale. Inserisci manualmente:</strong> <input type="text" id="codiceFiscaleInput" class="inputField" placeholder="Codice Fiscale" oninput="saveManualData()"></div>`;
+                }
+            } else if (category === 'business') {
+                const pivaPattern = /\b0\d{10}\b/g;
+                const pivaMatch = normalizedText.match(pivaPattern);
+                if (pivaMatch) {
+                    identificativo = pivaMatch[0];
+                    output.innerHTML += `<div class="result"><strong>Partita IVA:</strong><input type="text" id="partitaIvaInput" class="inputField" value="${identificativo}" oninput="saveManualData()"></div>`;
+                } else {
+                    output.innerHTML += `<div class="result"><strong>Non è stata trovata una Partita IVA. Inserisci manualmente:</strong> <input type="text" id="partitaIvaInput" class="inputField" placeholder="Partita IVA" oninput="saveManualData()"></div>`;
+                }
+            }
+
+            if (fileType === 'luce') {
+                const podPattern = /\bIT[A-Z0-9]{12}\b/gi;
+                const podMatch = normalizedText.match(podPattern);
+                if (podMatch) {
+                    pod = podMatch[0];
+                    output.innerHTML += `<div class="result"><strong>POD:</strong><input type="text" id="podInput" class="inputField" value="${pod.toUpperCase()}" oninput="saveManualData()"></div>`;
+                } else {
+                    output.innerHTML += `<div class="result"><strong>Non è stato trovato un POD. Inserisci manualmente:</strong> <input type="text" id="podInput" class="inputField" placeholder="POD" oninput="saveManualData()"></div>`;
+                }
+            } else if (fileType === 'gas') {
+                const pdrPattern = /\b\d{14}\b/g;
+                const pdrMatch = normalizedText.match(pdrPattern);
+                if (pdrMatch) {
+                    pdr = pdrMatch[0];
+                    output.innerHTML += `<div class="result"><strong>PDR:</strong><input type="text" id="pdrInput" class="inputField" value="${pdr}" oninput="saveManualData()"></div>`;
+                } else {
+                    output.innerHTML += `<div class="result"><strong>Non è stato trovato un PDR. Inserisci manualmente:</strong> <input type="text" id="pdrInput" class="inputField" placeholder="PDR" oninput="saveManualData()"></div>`;
+                }
+            }
+
+            if (fileType === 'luce') {
+                const consumoPattern = /(?:CONSUMO\s+FATTURATO\s*[:=]\s*)?(\d+\.?\d*\s*KWH)/gi;
+                const consumoMatch = consumoPattern.exec(normalizedText);
+                if (consumoMatch) {
+                    consumoBolletta = consumoMatch[1].replace('.', ',');
+                    output.innerHTML += `<div class="result"><strong>Consumo Fatturato:</strong><input type="text" id="consumoBollettaInput" class="inputField" value="${consumoBolletta}" oninput="saveManualData()" required></div>`;
+                } else {
+                    output.innerHTML += `<div class="result"><strong>Consumo Fatturato non trovato. Inserisci manualmente:</strong> <input type="text" id="consumoBollettaInput" class="inputField" placeholder="Consumo Fatturato" oninput="saveManualData()" required></div>`;
+                }
+            } else if (fileType === 'gas') {
+                const consumoPattern = /(?:CONSUMO\s+FATTURATO\s*[:=]\s*)?(\d+\.?\d*\s*SMC)/gi;
+                const consumoMatch = consumoPattern.exec(normalizedText);
+                if (consumoMatch) {
+                    consumoBolletta = consumoMatch[1].replace('.', ',');
+                    output.innerHTML += `<div class="result"><strong>Consumo Fatturato:</strong><input type="text" id="consumoBollettaInput" class="inputField" value="${consumoBolletta}" oninput="saveManualData()" required></div>`;
+                } else {
+                    output.innerHTML += `<div class="result"><strong>Consumo Fatturato non trovato. Inserisci manualmente:</strong> <input type="text" id="consumoBollettaInput" class="inputField" placeholder="Consumo Fatturato" oninput="saveManualData()" required></div>`;
+                }
+            }
+
+            const importoPattern = /(?:IMPORTO\s+BOLLETTA\s*[:=]\s*)?(\d+[\.,]?\d*\s*(€|EURO))/gi;
+            const importoMatch = importoPattern.exec(normalizedText);
+            if (importoMatch) {
+                importoBolletta = parseFloat(importoMatch[1].replace(',', '.')).toFixed(2).replace('.', ',');
+                output.innerHTML += `<div class="result"><strong>Importo Bolletta:</strong><input type="text" id="importoBollettaInput" class="inputField" value="${importoBolletta} €" oninput="saveManualData()" required></div>`;
+            } else {
+                output.innerHTML += `<div class="result"><strong>Importo Bolletta non trovato. Inserisci manualmente:</strong> <input type="text" id="importoBollettaInput" class="inputField" placeholder="Importo Bolletta" oninput="saveManualData()" required></div>`;
+            }
+
+            spesaEnergia = findSpesaEnergia(normalizedText, importoBolletta);
+            if (spesaEnergia) {
+                output.innerHTML += `<div class="result"><strong>Spesa per l'Energia:</strong><input type="text" id="spesaEnergiaInput" class="inputField" value="${spesaEnergia} €" oninput="saveManualData()" required></div>`;
+            } else {
+                output.innerHTML += `<div class="result"><strong>Spesa per l'Energia non trovata. Inserisci manualmente:</strong> <input type="text" id="spesaEnergiaInput" class="inputField" placeholder="Spesa per l'Energia" oninput="saveManualData()" required></div>`;
+            }
+
+            output.innerHTML += `<div id="manualData"></div>`;
+
+            analyzedData = {
+                consumoBolletta: consumoBolletta,
+                importoBolletta: importoBolletta,
+                spesaEnergia: spesaEnergia
+            };
+
+            document.getElementById('energia').value = spesaEnergia.replace(',', '.');
+            document.getElementById('importo').value = importoBolletta.replace(',', '.');
+            document.getElementById('consumo').value = consumoBolletta.replace(',', '.').match(/\d+\.?\d*/)[0];
+        }
+
+        function saveManualData() {
+            const codiceFiscaleInput = document.getElementById('codiceFiscaleInput');
+            const partitaIvaInput = document.getElementById('partitaIvaInput');
+            const podInput = document.getElementById('podInput');
+            const pdrInput = document.getElementById('pdrInput');
+            const consumoBollettaInput = document.getElementById('consumoBollettaInput');
+            const importoBollettaInput = document.getElementById('importoBollettaInput');
+            const spesaEnergiaInput = document.getElementById('spesaEnergiaInput');
+
+            if (consumoBollettaInput) analyzedData.consumoBolletta = consumoBollettaInput.value;
+            if (importoBollettaInput) analyzedData.importoBolletta = importoBollettaInput.value;
+            if (spesaEnergiaInput) analyzedData.spesaEnergia = spesaEnergiaInput.value;
+
+            document.getElementById('energia').value = analyzedData.spesaEnergia.replace(',', '.');
+            document.getElementById('importo').value = analyzedData.importoBolletta.replace(',', '.');
+            document.getElementById('consumo').value = analyzedData.consumoBolletta.replace(',', '.').match(/\d+\.?\d*/)[0];
+        }
+
+        function displayManualInputFields() {
+            const output = document.getElementById('output');
+            const manualInputFields = `
+                <div class="result">
+                    <strong>Inserisci manualmente i dati mancanti:</strong>
+                    <div><label for="manualImportoBolletta">Importo Bolletta (€):</label><input type="number" id="manualImportoBolletta" class="inputField" step="0.01" oninput="saveManualData()" required></div>
+                    <div><label for="manualSpesaEnergia">Spesa per l'Energia (€):</label><input type="number" id="manualSpesaEnergia" class="inputField" step="0.01" oninput="saveManualData()" required></div>
+                    <div><label for="manualConsumoBolletta">Consumo Fatturato (kWh/Smc):</label><input type="number" id="manualConsumoBolletta" class="inputField" step="0.01" oninput="saveManualData()" required></div>
+                </div>
+            `;
+            output.innerHTML += manualInputFields;
+
+            document.getElementById('manualImportoBolletta').addEventListener('input', function() {
+                analyzedData.importoBolletta = this.value;
+                document.getElementById('importo').value = this.value.replace(',', '.');
+            });
+
+            document.getElementById('manualSpesaEnergia').addEventListener('input', function() {
+                analyzedData.spesaEnergia = this.value;
+                document.getElementById('energia').value = this.value.replace(',', '.');
+            });
+
+            document.getElementById('manualConsumoBolletta').addEventListener('input', function() {
+                analyzedData.consumoBolletta = this.value;
+                document.getElementById('consumo').value = this.value.replace(',', '.');
+            });
+
+            // Ensure navigation buttons and calculation section are visible
+            const navButtons = document.querySelector('.navButtons');
+            const calculationHeader = document.getElementById('calculationHeader');
+            const calculationContainer = document.getElementById('calculationContainer');
+            navButtons.style.display = 'flex';
+            calculationHeader.classList.remove('hidden');
+            calculationContainer.classList.remove('hidden');
+        }
+
+        function calcolaPunteggio() {
+            const energiaInput = document.getElementById('energia');
+            const importoInput = document.getElementById('importo');
+            const consumoInput = document.getElementById('consumo');
+
+            let isValid = true;
+
+            // Validate inputs
+            [energiaInput, importoInput, consumoInput].forEach(input => {
+                if (!input.value) {
+                    input.classList.add('highlight-error');
+                    isValid = false;
+                } else {
+                    input.classList.remove('highlight-error');
+                }
+            });
+
+            if (!isValid) {
+                alert('Per favore, compila tutti i campi obbligatori.');
+                return;
+            }
+
+            const energia = parseFloat(energiaInput.value.replace(',', '.'));
+            const importo = parseFloat(importoInput.value.replace(',', '.'));
+            let consumo = parseFloat(consumoInput.value.replace(',', '.').match(/\d+\.?\d*/)[0]);
+            const periodo = parseInt(document.getElementById('periodo').value);
+
+            const tolleranza = 50 * periodo;
+
+            if (consumo <= tolleranza) {
+                consumo = 0;
+            }
+
+            const costoMedioUnitarioBolletta = importo / (consumo || 1);
+            const costoMedioUnitarioEnergia = energia / (consumo || 1);
+
+            const serviceType = document.getElementById('typeSelect').value;
+            const userType = document.getElementById('categorySelect').value;
+
+            const soglie = getSoglie(serviceType, userType, periodo);
+
+            let punteggioFinale;
+            if (consumo === 0) {
+                punteggioFinale = calcolaPunteggioIntervallo(importo, soglie.costoFissoMinimo, soglie.costoFissoMassimo);
+            } else {
+                const punteggioBolletta = calcolaPunteggioIntervallo(costoMedioUnitarioBolletta, soglie.sogliaMinimaBolletta, soglie.sogliaMassimaBolletta);
+                const punteggioEnergia = calcolaPunteggioIntervallo(costoMedioUnitarioEnergia, soglie.sogliaMinimaEnergia, soglie.sogliaMassimaEnergia);
+                punteggioFinale = Math.round((punteggioBolletta * 0.4) + (punteggioEnergia * 0.6));
+            }
+
+            mostraRisultato(punteggioFinale, consumo, costoMedioUnitarioBolletta, costoMedioUnitarioEnergia);
+        }
+
+        function getSoglie(serviceType, userType, periodo) {
+            const soglie = {
+                luce: {
+                    residenziale: {
+                        sogliaMinimaBolletta: 0.25,
+                        sogliaMassimaBolletta: 0.40,
+                        sogliaMinimaEnergia: 0.15,
+                        sogliaMassimaEnergia: 0.25,
+                        costoFissoMinimo: 20 * periodo,
+                        costoFissoMassimo: 25 * periodo
+                    },
+                    business: {
+                        sogliaMinimaBolletta: 0.18,
+                        sogliaMassimaBolletta: 0.30,
+                        sogliaMinimaEnergia: 0.12,
+                        sogliaMassimaEnergia: 0.20,
+                        costoFissoMinimo: 30 * periodo,
+                        costoFissoMassimo: 40 * periodo
+                    }
+                },
+                gas: {
+                    residenziale: {
+                        sogliaMinimaBolletta: 0.80,
+                        sogliaMassimaBolletta: 1.50,
+                        sogliaMinimaEnergia: 0.35,
+                        sogliaMassimaEnergia: 0.50,
+                        costoFissoMinimo: 10 * periodo,
+                        costoFissoMassimo: 15 * periodo
+                    },
+                    business: {
+                        sogliaMinimaBolletta: 0.60,
+                        sogliaMassimaBolletta: 1.20,
+                        sogliaMinimaEnergia: 0.30,
+                        sogliaMassimaEnergia: 0.45,
+                        costoFissoMinimo: 20 * periodo,
+                        costoFissoMassimo: 30 * periodo
+                    }
+                }
+            };
+            return soglie[serviceType][userType];
+        }
+
+        function calcolaPunteggioIntervallo(valore, minimo, massimo) {
+            if (valore < minimo) {
+                return 10;
+            } else if (valore > massimo) {
+                return 1;
+            } else {
+                return Math.round(9 - ((valore - minimo) / (massimo - minimo) * 8) + 1);
+            }
+        }
+
+        function mostraRisultato(punteggio, consumo, costoMedioUnitarioBolletta, costoMedioUnitarioEnergia) {
+            const resultElement = document.getElementById('result');
+            const explanationElement = document.getElementById('explanation');
+            const detailedExplanationButton = document.getElementById('detailedExplanationButton');
+            const detailedExplanationElement = document.getElementById('detailedExplanation');
+
+            let emoji = '';
+            let esito = '';
+
+            if (consumo === 0) {
+                emoji = '😐';
+                esito = 'La tua bolletta è in linea con i costi fissi, ma potresti trovare un fornitore con una tariffa più adatta al tuo tipo di consumo. Ti consigliamo di caricare una bolletta con dei consumi per un\'analisi più precisa.';
+            } else if (punteggio >= 9) {
+                emoji = '🤩';
+                esito = 'Ottimo lavoro! La tua bolletta è eccezionale. Continua così! Hai fatto un ottimo lavoro nel scegliere una tariffa adatta ai tuoi consumi energetici.';
+            } else if (punteggio >= 8) {
+                emoji = '😁';
+                esito = 'Molto bene! La tua bolletta è molto buona. Mantieni questi risultati. I tuoi costi sono ben controllati grazie a una buona tariffa. Sei vicino all\'eccellenza.';
+            } else if (punteggio >= 7) {
+                emoji = '😊';
+                esito = 'Buon lavoro! La tua bolletta è buona, ma c\'è sempre spazio per migliorare. Stai facendo bene, ma potresti trovare una tariffa ancora più conveniente.';
+            } else if (punteggio >= 6) {
+                emoji = '🙂';
+                esito = 'Non male! La tua bolletta è soddisfacente, ma puoi fare di meglio. Sei nella media, prova a trovare una tariffa più vantaggiosa per risparmiare di più.';
+            } else if (punteggio >= 5) {
+                emoji = '😐';
+                esito = 'La tua bolletta è nella media. Prova a trovare modi per risparmiare di più. I tuoi costi sono accettabili, ma potresti migliorare scegliendo una tariffa più adatta ai tuoi consumi.';
+            } else if (punteggio >= 4) {
+                emoji = '😕';
+                esito = 'La tua bolletta è un po\' alta. Controlla le tue spese e vedi dove puoi ridurre i costi. Stai pagando più del necessario. Esplora altre tariffe che potrebbero offrirti un risparmio.';
+            } else if (punteggio >= 3) {
+                emoji = '😟';
+                esito = 'La tua bolletta non è delle migliori. È ora di esaminare le tue abitudini di consumo. I tuoi costi sono elevati. Cerca una tariffa più conveniente che si adatti meglio ai tuoi consumi.';
+            } else if (punteggio >= 2) {
+                emoji = '😠';
+                esito = 'La tua bolletta è troppo alta! Devi prendere provvedimenti per ridurre i costi. Stai pagando troppo. Considera di cambiare fornitore o tariffa per migliorare la tua situazione.';
+            } else {
+                emoji = '😡';
+                esito = 'La tua bolletta è estremamente alta. Agisci subito per ridurre drasticamente le tue spese. La situazione è critica. Devi adottare misure immediate per trovare una tariffa più conveniente e adatta ai tuoi consumi.';
+            }
+
+            const unit = document.getElementById('typeSelect').value === 'luce' ? 'kWh' : 'Smc';
+            resultElement.innerHTML = `Punteggio finale: ${punteggio} su 10 <span class="emoji">${emoji}</span>`;
+            explanationElement.innerHTML = `<p>${esito}</p>`;
+            detailedExplanationButton.classList.remove('hidden');
+
+            const detailedExplanation = `
+                <p><strong>Come è stato calcolato il tuo punteggio:</strong></p>
+                <p>Per calcolare il punteggio, abbiamo confrontato il costo medio della tua bolletta e il costo medio dell'energia con valori di riferimento specifici per il tuo tipo di utenza.</p>
+                <p>Il costo medio della tua Bolletta è di <strong>${costoMedioUnitarioBolletta.toFixed(2).replace('.', ',')} €</strong> per ${unit}.</p>
+                <p>Il costo medio della Spesa Energia è di <strong>${costoMedioUnitarioEnergia.toFixed(2).replace('.', ',')} €</strong> per ${unit}.</p>
+                <p>Se il consumo è basso o zero, abbiamo valutato la tua bolletta basandoci sui costi fissi mensili tipici.</p>
+            `;
+            detailedExplanationElement.innerHTML = detailedExplanation;
+        }
+
+        function toggleDetailedExplanation() {
+            const detailedExplanation = document.getElementById('detailedExplanation');
+            detailedExplanation.classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>
